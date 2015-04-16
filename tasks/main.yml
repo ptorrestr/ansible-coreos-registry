@@ -28,26 +28,14 @@
     - Write registry IP locally
 
 - name: Create Registry Units
-  template: src={{ item.template }} dest={{ playbook_dir }}/units/{{ item.file }}
-  with_items:
-    - template: "docker-registry-install.x.service.j2"
-      file: "docker-registry-install.1.service"
-    - template: "registry.x.service.j2"
-      file: "registry.1.service"
+  template: src=registry.x.service.j2 dest={{ playbook_dir }}/units/registry.1.service
   tags:
     - configuration
 
 # Submit Units
-- name: Submit Install Registry units
-  shell: fleetctl --tunnel {{ fleet_endpoint }} submit {{ playbook_dir }}/units/docker-registry-install.1.service
-  tags:
-    - fleet_submit
-    - fleet_submit_registry
-
 - name: Submit Registry units
   shell: fleetctl --tunnel {{ fleet_endpoint }} submit {{ playbook_dir }}/units/{{ item }}
   with_items:
-    - "docker-registry-install.1.service"
     - "registry.1.service"
   tags:
     - fleet_submit
@@ -57,7 +45,6 @@
 - name: Start Registry units
   shell: sleep 5 && fleetctl --tunnel {{ fleet_endpoint }} start {{ item }}
   with_items:
-    - "docker-registry-install.1.service"
     - "registry.1.service"
   tags:
     - fleet_start
