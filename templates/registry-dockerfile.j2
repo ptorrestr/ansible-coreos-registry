@@ -1,0 +1,5 @@
+FROM registry:0.9.1
+ADD config.yml /docker-registry/config/config.yml
+RUN mkdir /registry
+ENV DOCKER_REGISTRY_CONFIG /docker-registry/config/config.yml
+ENV SETTINGS_FLAVOR prod

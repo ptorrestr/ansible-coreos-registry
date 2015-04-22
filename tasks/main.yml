@@ -27,8 +27,39 @@
     - Write registry IP to coreos servers
     - Write registry IP locally
 
+# Create dockerfile
+- name: Create docker directory for registry
+  file: path={{ playbook_dir }}/docker/docker-registry state=directory
+  tags:
+    - configuration
+
+- name: Create Registry Dockerfile
+  template: src=registry-dockerfile.j2 dest={{ playbook_dir }}/docker/docker-registry/Dockerfile
+  tags:
+    - configuration
+
+- name: Copy extra files for Registry image
+  copy: src={{ item }} dest={{ playbook_dir }}/docker/docker-registry/{{ item }}
+  with_items:
+    - "config.yml"
+  tags:
+    - configuration
+
+- name: Build Registry image
+  docker_image: docker_url=tcp://{{ registry_hostname }}:2375 path="{{ playbook_dir }}/docker/docker-registry" name="{{ registry_image_name }}" state="build"
+  tags:
+    - docker
+    - docker_push
+
+#- name: Push Registry image to repo
+#  shell: "docker -H tcp://{{ registry_hostname }}:2375 push {{ registry_image_name }}"
+#  tags:
+#    - docker
+#    - docker_push
+
+# Create unit
 - name: Create Registry Units
-  template: src=registry.x.service.j2 dest={{ playbook_dir }}/units/registry.1.service
+  template: src=registry@x.service.j2 dest={{ playbook_dir }}/units/registry@1.service
   tags:
     - configuration
 
@@ -36,7 +67,7 @@
 - name: Submit Registry units
   shell: fleetctl --tunnel {{ fleet_endpoint }} submit {{ playbook_dir }}/units/{{ item }}
   with_items:
-    - "registry.1.service"
+    - "registry@1.service"
   tags:
     - fleet_submit
     - fleet_submit_registry
@@ -45,7 +76,7 @@
 - name: Start Registry units
   shell: sleep 5 && fleetctl --tunnel {{ fleet_endpoint }} start {{ item }}
   with_items:
-    - "registry.1.service"
+    - "registry@1.service"
   tags:
     - fleet_start
     - fleet_start_registry
