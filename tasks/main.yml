@@ -4,20 +4,15 @@
   tags:
     - configuration
 
-# Prerequisities
-# ssh access to machine
-# fleetctl available on $PATH
-# key used in tunnel in ssh-agent
 - name: Gather fleet machines info
-  get_coreos_machines: tunnel={{ fleet_endpoint }}
+  get_coreos_machines:
   register: fleetctl_hosts
   tags:
     - configuration
     - coreos_registry
-
 - name: Find registry host
   choose_registry_machine: IPS="{{ item['IPS'] }}" IDS="{{ item['IDS'] }}"
-  register: registry_host
+  register: m_registry_host
   with_items:
     - "{{ fleetctl_hosts['stdout'] }}"
   tags:
@@ -32,51 +27,38 @@
   file: path={{ playbook_dir }}/docker/docker-registry state=directory
   tags:
     - configuration
-
 - name: Create Registry Dockerfile
   template: src=registry-dockerfile.j2 dest={{ playbook_dir }}/docker/docker-registry/Dockerfile
   tags:
     - configuration
-
 - name: Copy extra files for Registry image
   copy: src={{ item }} dest={{ playbook_dir }}/docker/docker-registry/{{ item }}
   with_items:
     - "config.yml"
   tags:
     - configuration
-
 - name: Build Registry image
-  docker_image: docker_url=tcp://{{ registry_hostname }}:2375 path="{{ playbook_dir }}/docker/docker-registry" name="{{ registry_image_name }}" state="build"
+  docker_image: docker_url="tcp://{{ registry_host }}:2375" path="{{ playbook_dir }}/docker/docker-registry" name="{{ registry_image_name }}" state="build"
   tags:
     - docker
     - docker_push
 
-#- name: Push Registry image to repo
-#  shell: "docker -H tcp://{{ registry_hostname }}:2375 push {{ registry_image_name }}"
-#  tags:
-#    - docker
-#    - docker_push
-
 # Create unit
 - name: Create Registry Units
-  template: src=registry@x.service.j2 dest={{ playbook_dir }}/units/registry@1.service
+  template: src="registry.service.j2" dest="{{ playbook_dir }}/units/registry.service"
   tags:
     - configuration
-
-# Submit Units
 - name: Submit Registry units
-  shell: fleetctl --tunnel {{ fleet_endpoint }} submit {{ playbook_dir }}/units/{{ item }}
+  shell: "fleetctl submit {{ playbook_dir }}/units/{{ item }}"
   with_items:
-    - "registry@1.service"
+    - "registry.service"
   tags:
     - fleet_submit
     - fleet_submit_registry
-
-# Start Units
 - name: Start Registry units
-  shell: sleep 5 && fleetctl --tunnel {{ fleet_endpoint }} start {{ item }}
+  shell: "fleetctl start {{ item }}"
   with_items:
-    - "registry@1.service"
+    - "registry.service"
   tags:
     - fleet_start
     - fleet_start_registry

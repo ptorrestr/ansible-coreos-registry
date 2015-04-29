@@ -1,0 +1,26 @@
+[Unit]
+Description=Run docker registry
+Documentation=https://github.com/docker/docker-registry
+Requires=etcd.service
+Requires=docker.service
+After=etcd.service
+After=docker.service
+
+[Service]
+KillMode=none
+TimeoutStartSec=360
+TimeoutStopSec=360
+EnvironmentFile=/etc/environment
+ExecStartPre=-/usr/bin/docker rm -f %p
+ExecStartPre=/bin/bash -c '\
+	DNS=`/usr/bin/etcdctl get /skydns/ip` ; \
+	/usr/bin/docker create -it --name %p -v /home/coreos/registry:/registry -p 5000:5000 --dns=$DNS {{ registry_image_name }} ; \
+	'
+ExecStart=/usr/bin/docker start -a %p
+ExecStartPost=/usr/bin/etcdctl set /skydns/local/dockerregistry '{"host":"${COREOS_PUBLIC_IPV4}","port":5000}'
+ExecStop=/usr/bin/docker stop -t 60 %p
+ExecStopPost=-/usr/bin/docker rm -f %p
+ExecStopPost=/usr/bin/etcdctl rm /skydns/local/dockerregistry
+
+[X-Fleet]
+MachineID={{ m_registry_host.results[0].ID }}
